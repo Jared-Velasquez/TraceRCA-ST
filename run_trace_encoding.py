@@ -12,6 +12,18 @@ from tqdm import tqdm
 from data.trainticket.download import simple_name
 from trainticket_config import *
 
+# produces one row per trace; creates a fixed-sized matrix
+# where each trace is flattened into a single feature vector
+
+# Each service gets a slot (indexed by SERVICE2IDX) and the features
+# (latency, http_status) are placed at that service's position. Services not
+# present in a trace get -1.
+
+# Used by trace-level classifiers (random forest, MLP) that answer
+# "is this entire trace anomalouos?"
+
+# Trace encoding summarizes a whole trace for classification
+
 """
 Encode train-ticket pickle data into trace-level data and label:
 {
@@ -32,10 +44,10 @@ def encoding_data(source_data: List, drop_service=(), drop_fault_type=()):
     else:
         _data = np.ones((len(source_data), len(INVOLVED_SERVICES), 2), dtype=np.float32) * -1
 
-    _labels = np.zeros((len(source_data),), dtype=np.bool)
+    _labels = np.zeros((len(source_data),), dtype=bool)
     _trace_ids = [""] * len(source_data)
-    _service_mask = np.zeros((len(source_data), len(INVOLVED_SERVICES)), dtype=np.bool)
-    _root_causes = np.zeros((len(source_data), len(INVOLVED_SERVICES)), dtype=np.bool)
+    _service_mask = np.zeros((len(source_data), len(INVOLVED_SERVICES)), dtype=bool)
+    _root_causes = np.zeros((len(source_data), len(INVOLVED_SERVICES)), dtype=bool)
     for trace_idx, trace in enumerate(source_data):
         if 'fault_type' in trace and trace['fault_type'] in drop_fault_type:
             continue

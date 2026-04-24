@@ -45,7 +45,7 @@ def main(trace_history, invo_history, output_file):
     for source, target in indices:
         reference = invo_history.loc[(source, target), FEATURE_NAMES].values
         token = f"IF-{source}-{target}"
-        model = IsolationForest(behaviour='new', contamination=0.01, n_jobs=10)
+        model = IsolationForest(contamination=0.01, n_jobs=10)
         model.fit(reference)
         result[token] = model
 

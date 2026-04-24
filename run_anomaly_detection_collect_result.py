@@ -31,7 +31,7 @@ def collect_result_main(invo_input_files, trace_input_files, output_file):
     for input_file in trace_input_files:
         with open(input_file, 'rb') as f:
             df = pickle.load(f).set_index(['trace_id'])
-        idx = set(df.index.values).intersection(trace_ids)
+        idx = list(set(df.index.values).intersection(trace_ids))
         y_true = df.loc[idx, 'trace_label'].values
         for algo in ['RF-Trace', 'KNN-Trace', 'MLP-Trace']:
             try:
@@ -56,7 +56,7 @@ def collect_result_main(invo_input_files, trace_input_files, output_file):
         with open(input_file, 'rb') as f:
             df = pickle.load(f)
         groupby = df.groupby(by=['trace_id'])
-        idx = set(df.trace_id.values).intersection(trace_ids)
+        idx = list(set(df.trace_id.values).intersection(trace_ids))
         y_true = np.asarray(groupby.first().loc[idx, 'trace_label'].values)
         for method in ["Ours", "NoSelection", "IF"]:
             try:

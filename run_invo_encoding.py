@@ -11,6 +11,15 @@ from loguru import logger
 from data.trainticket.download import simple_name
 from trainticket_config import *
 
+
+# Produces one row per span/call. Each (source, target)
+# pair in a trace becomes its own row with its own latency, http_status,
+# timestamps, and trace_id. This is used by the invocation-level
+# anomaly detection and root cause localization; preserves which specific
+# service-to-service call was abnormal
+
+# Invocation encoding preserves individual spans for pinpointing the root cause
+
 """
 Encode train-ticket pickle data into data frame of invocations:
     source, target, start time, end time, trace_id, features

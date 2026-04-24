@@ -59,7 +59,6 @@ def main(input_file, output_file, min_support_rate, quiet, k, enable_prfl):
     output_data = {}
     tracerca = TraceRCA()
     n_traces = len(input_file['trace_id'].unique())
-    # for noise in EXP_NOISE_LIST:
     for noise in [0]:
         injected_file = inject_noise(input_file, noise)
         tic = time.time()

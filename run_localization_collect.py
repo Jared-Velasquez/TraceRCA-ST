@@ -67,14 +67,13 @@ def main(input_file_list: List, output_file: str, root_cause):
         filename = input_file.name.split(".")[0]
         attrs = filename.split('_')
         if root_cause is None:
-            # for idx, attr in enumerate(attrs):
-            #     if attr in FAULT_TYPES:
-            #         fault_type = attr
-            #         ground_truth = set(frozenset([f"ts-{_}-service"]) for _ in attrs[idx - 1].split('+'))
-            #         break
-            # else:
-            #     raise RuntimeError(f"No fault type found: {input_file}")
-            pass
+            for idx, attr in enumerate(attrs):
+                if attr in FAULT_TYPES:
+                    fault_type = attr
+                    ground_truth = set(frozenset([simple_name(_)]) for _ in attrs[idx - 1].split('+'))
+                    break
+            else:
+                raise RuntimeError(f"No fault type found: {input_file}")
         else:
             with open(str(root_cause / f'{filename}.pkl'), 'rb') as f:
                 ground_truth = pickle.load(f)
