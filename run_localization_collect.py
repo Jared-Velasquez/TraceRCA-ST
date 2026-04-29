@@ -12,7 +12,7 @@ from numba import jit
 from data.trainticket.download import simple_name
 from trainticket_config import INVOLVED_SERVICES
 
-FAULT_TYPES = {'delay', 'abort', 'cpu'}
+FAULT_TYPES = {'delay', 'abort', 'cpu', 'disk', 'loss', 'mem', 'socket'}
 
 
 def root_cause_intersection(y_true, y_pred) -> int:

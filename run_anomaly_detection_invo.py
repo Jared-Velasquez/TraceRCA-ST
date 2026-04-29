@@ -92,6 +92,13 @@ def invo_anomaly_detection_main(input_file, output_file, history, useful_feature
     toc = time.time()
     print("algo:", "ours", "time:", toc - tic, 'invos:', len(df))
 
+    if len(df) == 0:
+        for col in ('Ours-predict', 'NoSelection-predict', 'IF-predict', 'predict'):
+            df[col] = np.nan
+        with open(output_file, 'wb+') as f:
+            pickle.dump(df, f)
+        return
+
     df = anomaly_detection_3sigma_without_useful_features(df, 'NoSelection-predict', None, cache=cache)
 
     # tic = time.time()

@@ -105,6 +105,7 @@ def selecting_feature_main(input_file: str, output_file: str, history: str, fish
             # useful_features_dict[(source, target)].append(feature)
     # logger.debug(f"{input_file.name} {dict(useful_features_dict)}")
     print(f"{input_file.name} {dict(useful_features_dict)}")
+    output_file.parent.mkdir(parents=True, exist_ok=True)
     with open(output_file, 'w+') as f:
         print(dict(useful_features_dict), file=f)
 

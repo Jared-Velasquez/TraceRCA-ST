@@ -56,6 +56,11 @@ def main(input_file, output_file, min_support_rate, quiet, k, enable_prfl):
     output_file = Path(output_file)
     output_file.parent.mkdir(exist_ok=True)
 
+    if len(input_file) == 0:
+        with open(output_file, 'wb+') as f:
+            pickle.dump({"Ours-noise=0": []}, f)
+        return
+
     output_data = {}
     tracerca = TraceRCA()
     n_traces = len(input_file['trace_id'].unique())

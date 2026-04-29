@@ -39,7 +39,7 @@ from pathlib import Path
 import pandas as pd
 
 # TraceRCA supported fault types (others are skipped)
-SUPPORTED_FAULT_TYPES = {'cpu', 'delay'}
+SUPPORTED_FAULT_TYPES = {'cpu', 'delay', 'disk', 'loss', 'mem', 'socket'}
 
 # Bring in the config and simple_name from the TraceRCA package
 sys.path.insert(0, str(Path(__file__).parent))
@@ -186,7 +186,7 @@ def build_trace_dict(trace_id, invocations, label, fault_type, root_cause):
 # Per-case processing
 # ---------------------------------------------------------------------------
 
-def process_case(case_dir: Path, output_dir: Path, normal_ratio: float):
+def process_case(case_dir: Path, output_dir: Path, normal_ratio: float, warmup_seconds: int = 0):
     """
     Convert one RE2-TT case directory to TraceRCA pkl files.
     Writes:
@@ -199,12 +199,16 @@ def process_case(case_dir: Path, output_dir: Path, normal_ratio: float):
         print(f"  Skipping {case_dir}: {exc}")
         return
 
-    # Case name used for output file (e.g. 'ts-auth-service_cpu')
-    case_name = case_dir.name if not case_dir.name.isdigit() else case_dir.parent.name
+    # Case name used for output file (e.g. 'ts-auth-service_cpu_1')
+    if case_dir.name.isdigit():
+        case_name = f"{case_dir.parent.name}_{case_dir.name}"
+    else:
+        case_name = case_dir.name
     print(f"Processing {case_name} (fault={fault_type}, root_cause={root_cause}) ...")
 
     inject_ts_sec = read_inject_time(case_dir)
     inject_ts_us = inject_ts_sec * 1_000_000  # microseconds
+    warmup_us = warmup_seconds * 1_000_000
 
     print(f"  Loading traces.csv ...")
     df = load_traces(case_dir)
@@ -222,7 +226,12 @@ def process_case(case_dir: Path, output_dir: Path, normal_ratio: float):
         spans = list(group.itertuples(index=False))
         min_start_us = min(s.startTime for s in spans)
 
-        label = 1 if min_start_us >= inject_ts_us else 0
+        if min_start_us < inject_ts_us:
+            label = 0
+        elif min_start_us < inject_ts_us + warmup_us:
+            label = 0  # warm-up window: fault injected but not yet manifesting
+        else:
+            label = 1
 
         invocations = reconstruct_invocations(spans, span_lookup)
         if not invocations:
@@ -279,11 +288,13 @@ def find_case_dirs(input_dir: Path):
     if inject_file.exists():
         return [input_dir]
 
-    # Look for <service>_<fault>/1 pattern
+    # Look for <service>_<fault>/<rep> pattern — enumerate all numbered reps
     dirs = sorted(
-        p / '1'
+        rep_dir
         for p in input_dir.iterdir()
-        if p.is_dir() and '_' in p.name and (p / '1' / 'inject_time.txt').exists()
+        if p.is_dir() and '_' in p.name
+        for rep_dir in sorted(p.iterdir())
+        if rep_dir.name.isdigit() and (rep_dir / 'inject_time.txt').exists()
     )
     return dirs
 
@@ -311,6 +322,11 @@ def main():
         '--seed', type=int, default=42,
         help='Random seed for normal-trace sub-sampling (default: 42).',
     )
+    parser.add_argument(
+        '--warmup-seconds', type=int, default=0,
+        help='Seconds after injection to treat as warm-up (label=0). '
+             'Recommended: 60 for cpu/mem faults (default: 0 = no change).',
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -325,7 +341,7 @@ def main():
 
     print(f"Found {len(case_dirs)} case(s) to process.")
     for case_dir in case_dirs:
-        process_case(case_dir, output_dir, args.normal_ratio)
+        process_case(case_dir, output_dir, args.normal_ratio, args.warmup_seconds)
 
     print("\nAll done.")
 

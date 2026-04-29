@@ -1,3 +1,4 @@
+import importlib
 import sys
 from typing import Dict, Tuple
 import numpy as np
@@ -9,7 +10,6 @@ from pathlib import Path
 from loguru import logger
 
 from data.trainticket.download import simple_name
-from trainticket_config import *
 
 
 # Produces one row per span/call. Each (source, target)
@@ -30,8 +30,15 @@ Encode train-ticket pickle data into data frame of invocations:
 @click.command('invo-encoding')
 @click.option('-i', '--input', 'input_file', default="*.pkl", type=str)
 @click.option('-o', '--output', 'output_file', default='', type=str)
+@click.option('--dataset', default='tt', type=click.Choice(['tt', 'ob']),
+              help='Dataset config: tt=Train-Ticket (default), ob=Online-Boutique')
 # @click.option('-e', '--error-time', default='error_time.pkl', type=str)
-def train_ticket_invo_encoding_main(input_file: str, output_file: str):
+def train_ticket_invo_encoding_main(input_file: str, output_file: str, dataset: str):
+    cfg = importlib.import_module('trainticket_config' if dataset == 'tt' else 'onlineboutique_config')
+    ENABLE_ALL_FEATURES = cfg.ENABLE_ALL_FEATURES
+    FEATURE_NAMES = cfg.FEATURE_NAMES
+    INVOLVED_SERVICES = cfg.INVOLVED_SERVICES
+
     input_file = Path(input_file)
     output_file = Path(output_file)
     output_file.parent.mkdir(exist_ok=True)
