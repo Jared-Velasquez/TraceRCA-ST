@@ -2,8 +2,8 @@
 Post-hoc failure-mode classifier for baseline TraceRCA on RCAEval RE2-TT.
 
 Reads the artifacts produced by docs/COMMANDS.md and, for each case where the
-true cause is not Top-1, classifies the failure as supporting Candidate A
-(Jaccard dilution), Candidate B (caller accumulation), both, or neither.
+true cause is not Top-1, classifies the failure as supporting Jaccard dilution 
+(Candidate A), caller accumulation (Candidate B), both, or neither.
 
 Pre-validation step #1 from CLAUDE.md: if (A + B + ambiguous) / failures < ~30-40%
 the project's premise is not supported on this dataset.

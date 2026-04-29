@@ -15,6 +15,11 @@ from mlxtend.frequent_patterns import fpgrowth
 from mlxtend.preprocessing import TransactionEncoder
 
 from trainticket_config import EXP_NOISE_LIST
+from caller_discount import (
+    apply_caller_discount,
+    build_static_call_graph,
+    write_mechanism_log,
+)
 
 
 PREDICT_COLUMN = 'predict'
@@ -42,8 +47,16 @@ def inject_noise(df, ratio=0):
 @click.option("--enable-PRFL", is_flag=True)
 @click.option("--k", default=100)
 @click.option("--quiet", "-q", is_flag=True)
-def main(input_file, output_file, min_support_rate, quiet, k, enable_prfl):
+@click.option("--caller-discount-alpha", "caller_discount_alpha", type=float, default=0.0,
+              help="Caller-Discount Re-Ranking: Post-rank discount strength. 0.0 = baseline (off-switch).")
+@click.option("--norm-jaccard-gamma", "norm_jaccard_gamma", type=float, default=0.0,
+              help="Frequency-Normalized Jaccard: normalization strength. Reserved/no-op; kept so the four-condition ablation runs from one entry point.")
+@click.option("--mechanism-log", "mechanism_log_path", type=str, default=None,
+              help="Optional path for JSON mechanism log. Defaults to <output>.mechanism.json when alpha != 0.")
+def main(input_file, output_file, min_support_rate, quiet, k, enable_prfl,
+         caller_discount_alpha, norm_jaccard_gamma, mechanism_log_path):
     input_file = Path(input_file)
+    case_id = input_file.name.split('.')[0]
 
     with open(input_file, 'rb+') as f:
         input_file = pickle.load(f)
@@ -74,7 +87,20 @@ def main(input_file, output_file, min_support_rate, quiet, k, enable_prfl):
             predict_column=PREDICT_COLUMN,
             quiet=quiet,
             forbidden_names=frozenset({"gateway"}),
-            enable_PRFL=False
+            enable_PRFL=False,
+            caller_discount_alpha=caller_discount_alpha,
+            mechanism_log_path=(
+                Path(mechanism_log_path) if mechanism_log_path
+                else (Path(str(output_file) + f'.mechanism_alpha{caller_discount_alpha}.json')
+                      if caller_discount_alpha > 0.0 else None)
+            ),
+            case_id=case_id,
+            run_config={
+                "min_support_rate": min_support_rate,
+                "k": k,
+                "caller_discount_alpha": caller_discount_alpha,
+                "norm_jaccard_gamma": norm_jaccard_gamma,
+            },
         )
         toc = time.time()
         print(f'{output_file} {noise=} speed={n_traces / (toc - tic):.2f}traces/second, time={toc - tic:.2f}s')
@@ -388,6 +414,32 @@ class TraceRCA:
             itemset_handler.items,
             key=lambda _item: (-item_ret[_item]["score"], len(item_ret[_item]["pattern"]), _item),
         )
+
+        # Caller-discount post-processor. alpha=0 reproduces baseline ranking exactly.
+        caller_discount_alpha = float(kwargs.get("caller_discount_alpha", 0.0) or 0.0)
+        if caller_discount_alpha > 0.0:
+            item_scores = {item: item_ret[item]["score"] for item in itemset_handler.items}
+            pattern_len = {item: len(item_ret[item]["pattern"]) for item in itemset_handler.items}
+            static_callees = build_static_call_graph(input_file)
+            modified_ranked, modified_scores, max_callee = apply_caller_discount(
+                item_scores, pattern_len, static_callees, caller_discount_alpha,
+            )
+            log_path = kwargs.get("mechanism_log_path")
+            if log_path is not None:
+                write_mechanism_log(
+                    output_path=log_path,
+                    case_id=kwargs.get("case_id", ""),
+                    alpha=caller_discount_alpha,
+                    item_scores=item_scores,
+                    pattern_len=pattern_len,
+                    static_callees=static_callees,
+                    baseline_ranked=ret,
+                    modified_ranked=modified_ranked,
+                    modified_scores=modified_scores,
+                    max_callee=max_callee,
+                    config=kwargs.get("run_config", {}),
+                )
+            ret = modified_ranked
         if not quiet:
             logger.debug(
                 f"|{'item':30}|{'score':8}|{'pattern':60}|{'ps':8}|{'ips':8}|{'p(a|b)':8}|{'p(b|a)':8}|{'in':8}|{'out':8}"
