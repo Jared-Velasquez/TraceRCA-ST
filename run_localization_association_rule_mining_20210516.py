@@ -380,10 +380,13 @@ class TraceRCA:
                         "in-pattern_score": ips,
                     }
 
+        # Tie-breaking: primary=score desc, secondary=pattern length asc, tertiary=name asc.
+        # Negated form avoids reverse=True so the string tertiary key sorts A-first deterministically.
+        # Required because itemset_handler.items is a set whose iteration order is hash-randomized
+        # (PYTHONHASHSEED), making deep ties non-deterministic across runs without the tertiary key.
         ret = sorted(
             itemset_handler.items,
-            key=lambda _item: (item_ret[_item]["score"], -len(item_ret[_item]["pattern"])),
-            reverse=True,
+            key=lambda _item: (-item_ret[_item]["score"], len(item_ret[_item]["pattern"]), _item),
         )
         if not quiet:
             logger.debug(
